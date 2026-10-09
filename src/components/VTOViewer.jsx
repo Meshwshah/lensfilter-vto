@@ -744,7 +744,7 @@ export function VTOViewer({
                   className="flex-1 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-300 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-xl shadow-amber-500/25 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Camera className="w-4 h-4 stroke-[2.5]" />
-                  <span>📷 Use Front Camera</span>
+                  <span>Use Front Camera</span>
                 </button>
               )}
               <button
