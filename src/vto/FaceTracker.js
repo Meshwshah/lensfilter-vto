@@ -134,6 +134,10 @@ export class FaceTracker {
     this.stop(); // Stop any existing session
 
     try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Camera access not supported on this browser context');
+      }
+
       // 1. Request camera stream with mobile-first front-camera constraints
       let stream = null;
       try {
@@ -160,12 +164,12 @@ export class FaceTracker {
       }
 
       this.stream = stream;
-      this.videoElement.srcObject = stream;
       this.videoElement.setAttribute('playsinline', 'true');
       this.videoElement.setAttribute('webkit-playsinline', 'true');
       this.videoElement.playsInline = true;
       this.videoElement.muted = true;
       this.videoElement.autoplay = true;
+      this.videoElement.srcObject = stream;
 
       // Track true video stream dimensions dynamically (crucial for mobile portrait orientation)
       const notifyDimensions = () => {

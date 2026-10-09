@@ -14,22 +14,33 @@ const textureCache = new Map();
 export function getCachedTexture(url) {
   if (!url) return null;
   if (!textureCache.has(url)) {
-    const tex = textureLoader.load(url);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.minFilter = THREE.LinearMipmapLinearFilter;
-    tex.magFilter = THREE.LinearFilter;
-    tex.generateMipmaps = true;
-    textureCache.set(url, tex);
+    try {
+      const tex = textureLoader.load(
+        url,
+        undefined,
+        undefined,
+        (err) => console.warn('Texture load fallback:', url, err)
+      );
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.minFilter = THREE.LinearMipmapLinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+      tex.generateMipmaps = true;
+      textureCache.set(url, tex);
+    } catch (e) {
+      console.warn('Texture loader exception:', e);
+      return null;
+    }
   }
   return textureCache.get(url);
 }
 
-// Generate realistic studio HDRI reflection map with soft rectangular softboxes
+// Generate realistic studio reflection map safely
 export function createStudioEnvironmentMap(renderer) {
   if (!renderer) return null;
   try {
+    if (typeof THREE.PMREMGenerator === 'undefined') return null;
     const pmremGenerator = new THREE.PMREMGenerator(renderer);
-    pmremGenerator.compileEquirectangularShader();
+    if (!pmremGenerator) return null;
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x1a1a20);
@@ -51,7 +62,7 @@ export function createStudioEnvironmentMap(renderer) {
     frontSoftbox.position.set(0, 0.5, 3.5);
     scene.add(frontSoftbox);
 
-    // Left 45-degree fill
+    // Left fill
     const leftFill = new THREE.Mesh(
       new THREE.PlaneGeometry(3.5, 3.5),
       new THREE.MeshBasicMaterial({ color: 0xe2e8f0, side: THREE.DoubleSide })
@@ -74,10 +85,11 @@ export function createStudioEnvironmentMap(renderer) {
     scene.add(dirLight);
 
     const renderTarget = pmremGenerator.fromScene(scene, 0.04);
+    const texture = renderTarget ? renderTarget.texture : null;
     pmremGenerator.dispose();
-    return renderTarget.texture;
+    return texture;
   } catch (err) {
-    console.warn('PMREM environment map generation skipped on this device:', err);
+    console.warn('PMREM environment map generation skipped on this device/browser:', err);
     return null;
   }
 }
@@ -85,26 +97,32 @@ export function createStudioEnvironmentMap(renderer) {
 // Contact Ambient Occlusion Shadow Texture (strictly under nose bridge, never over eyes)
 function createContactShadowTexture() {
   if (typeof document === 'undefined') return null;
-  const canvas = document.createElement('canvas');
-  canvas.width = 256;
-  canvas.height = 128;
-  const ctx = canvas.getContext('2d');
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
 
-  ctx.clearRect(0, 0, 256, 128);
+    ctx.clearRect(0, 0, 256, 128);
 
-  const bridgeGrad = ctx.createRadialGradient(128, 64, 2, 128, 64, 24);
-  bridgeGrad.addColorStop(0, 'rgba(0, 0, 0, 0.22)');
-  bridgeGrad.addColorStop(0.5, 'rgba(0, 0, 0, 0.06)');
-  bridgeGrad.addColorStop(1, 'rgba(0, 0, 0, 0.0)');
+    const bridgeGrad = ctx.createRadialGradient(128, 64, 2, 128, 64, 24);
+    bridgeGrad.addColorStop(0, 'rgba(0, 0, 0, 0.22)');
+    bridgeGrad.addColorStop(0.5, 'rgba(0, 0, 0, 0.06)');
+    bridgeGrad.addColorStop(1, 'rgba(0, 0, 0, 0.0)');
 
-  ctx.fillStyle = bridgeGrad;
-  ctx.beginPath();
-  ctx.ellipse(128, 64, 24, 8, 0, 0, Math.PI * 2);
-  ctx.fill();
+    ctx.fillStyle = bridgeGrad;
+    ctx.beginPath();
+    ctx.ellipse(128, 64, 24, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
 
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.generateMipmaps = true;
-  return texture;
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.generateMipmaps = true;
+    return texture;
+  } catch (e) {
+    console.warn('Contact shadow texture generation skipped:', e);
+    return null;
+  }
 }
 
 const cachedShadowTex = createContactShadowTexture();

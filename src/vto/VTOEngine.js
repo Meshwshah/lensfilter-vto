@@ -116,22 +116,31 @@ export class VTOEngine {
     this.smoother = new Smoother(0.45, 0.35, 0.35);
     this.hasActiveFace = false;
 
-    // Start render loop
-    this.isRendering = true;
+    // Start render loop only if renderer is active
+    this.animationFrameId = null;
+    this.isRendering = !!this.renderer;
     this.renderLoop = this.renderLoop.bind(this);
-    requestAnimationFrame(this.renderLoop);
+    if (this.renderer) {
+      this.animationFrameId = requestAnimationFrame(this.renderLoop);
+    }
   }
 
   resize(width, height) {
-    if (!width || !height) return;
+    if (!width || !height || width <= 0 || height <= 0) return;
     this.width = width;
     this.height = height;
 
-    // Recompute FOV so 1 unit = 1 pixel at Z = 0
-    this.camera.fov = 2 * Math.atan((height / 2) / this.cameraDistance) * (180 / Math.PI);
-    this.camera.aspect = width / height;
-    this.camera.updateProjectionMatrix();
-    this.renderer.setSize(width, height, false);
+    try {
+      // Recompute FOV so 1 unit = 1 pixel at Z = 0
+      this.camera.fov = 2 * Math.atan((height / 2) / this.cameraDistance) * (180 / Math.PI);
+      this.camera.aspect = width / height;
+      this.camera.updateProjectionMatrix();
+      if (this.renderer) {
+        this.renderer.setSize(width, height, false);
+      }
+    } catch (err) {
+      console.warn('VTOEngine resize notice:', err);
+    }
   }
 
   setVideoDimensions(width, height) {
@@ -226,23 +235,29 @@ export class VTOEngine {
   }
 
   renderLoop() {
-    if (!this.isRendering) return;
+    if (!this.isRendering || !this.renderer) return;
 
-    if (this.splitProgress >= 0.99) {
-      this.renderer.setScissorTest(false);
-      this.renderer.render(this.scene, this.camera);
-    } else if (this.splitProgress <= 0.01) {
-      this.renderer.clear();
-    } else {
-      // Split view: render try-on only on the active side
-      this.renderer.setScissorTest(true);
-      this.renderer.setScissor(0, 0, this.width * this.splitProgress, this.height);
-      this.renderer.setViewport(0, 0, this.width, this.height);
-      this.renderer.render(this.scene, this.camera);
-      this.renderer.setScissorTest(false);
+    try {
+      if (this.splitProgress >= 0.99) {
+        this.renderer.setScissorTest(false);
+        this.renderer.render(this.scene, this.camera);
+      } else if (this.splitProgress <= 0.01) {
+        this.renderer.clear();
+      } else {
+        // Split view: render try-on only on the active side
+        this.renderer.setScissorTest(true);
+        this.renderer.setScissor(0, 0, this.width * this.splitProgress, this.height);
+        this.renderer.setViewport(0, 0, this.width, this.height);
+        this.renderer.render(this.scene, this.camera);
+        this.renderer.setScissorTest(false);
+      }
+    } catch (e) {
+      console.warn('VTOEngine render loop frame notice:', e);
     }
 
-    requestAnimationFrame(this.renderLoop);
+    if (this.isRendering && this.renderer) {
+      this.animationFrameId = requestAnimationFrame(this.renderLoop);
+    }
   }
 
   captureSnapshot(videoElement) {
@@ -250,6 +265,7 @@ export class VTOEngine {
     snapCanvas.width = this.width;
     snapCanvas.height = this.height;
     const ctx = snapCanvas.getContext('2d');
+    if (!ctx) return null;
 
     // Draw mirrored video
     ctx.save();
@@ -267,7 +283,9 @@ export class VTOEngine {
     ctx.restore();
 
     // Draw un-mirrored 3D canvas (since canvas matches mirrored video coordinate space directly)
-    ctx.drawImage(this.canvas, 0, 0, this.width, this.height);
+    if (this.canvas) {
+      ctx.drawImage(this.canvas, 0, 0, this.width, this.height);
+    }
 
     // Luxury watermark & frame info
     ctx.save();
@@ -296,6 +314,17 @@ export class VTOEngine {
 
   destroy() {
     this.isRendering = false;
-    this.renderer.dispose();
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
+    if (this.renderer) {
+      try {
+        this.renderer.dispose();
+      } catch (e) {
+        console.warn('VTOEngine dispose note:', e);
+      }
+      this.renderer = null;
+    }
   }
 }

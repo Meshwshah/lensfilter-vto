@@ -118,14 +118,19 @@ export default function App() {
     };
     window.addEventListener('resize', handleResize);
 
-    // ResizeObserver tracks mobile container element resizing (rotations & layout shifts)
     let resizeObserver = null;
+    let resizeRafId = null;
     if (typeof ResizeObserver !== 'undefined' && canvasRef.current) {
       resizeObserver = new ResizeObserver((entries) => {
         for (const entry of entries) {
           const { width, height } = entry.contentRect;
           if (width > 0 && height > 0 && engineRef.current) {
-            engineRef.current.resize(width, height);
+            if (resizeRafId) cancelAnimationFrame(resizeRafId);
+            resizeRafId = requestAnimationFrame(() => {
+              if (engineRef.current) {
+                engineRef.current.resize(width, height);
+              }
+            });
           }
         }
       });
@@ -134,6 +139,7 @@ export default function App() {
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      if (resizeRafId) cancelAnimationFrame(resizeRafId);
       if (resizeObserver) resizeObserver.disconnect();
       if (trackerRef.current) trackerRef.current.stop();
       if (engineRef.current) engineRef.current.destroy();
@@ -389,7 +395,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#131313] text-neutral-100 flex flex-col justify-between selection:bg-amber-500/30 relative overflow-x-hidden">
+    <div className="min-h-screen min-h-dvh bg-[#131313] text-neutral-100 flex flex-col justify-between selection:bg-amber-500/30 relative overflow-x-hidden">
       {/* Subtle Living Atmospheric Glow Background (Stitch Design) */}
       <div className="absolute top-10 left-1/2 -translate-x-1/2 w-[900px] h-[500px] bg-amber-500/5 rounded-full blur-[140px] pointer-events-none" />
       <div className="absolute top-[800px] -right-40 w-[600px] h-[600px] bg-emerald-500/5 rounded-full blur-[160px] pointer-events-none" />
