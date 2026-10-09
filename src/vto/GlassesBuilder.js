@@ -34,68 +34,15 @@ export function getCachedTexture(url) {
   return textureCache.get(url);
 }
 
-// Generate realistic studio reflection map safely
+// Environment map helper - returns null to rely on pristine three-point studio lighting
 export function createStudioEnvironmentMap(renderer) {
-  if (!renderer) return null;
-  try {
-    if (typeof THREE.PMREMGenerator === 'undefined') return null;
-    const pmremGenerator = new THREE.PMREMGenerator(renderer);
-    if (!pmremGenerator) return null;
-
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1a1a20);
-
-    // Ceiling softbox strip (crisp white specular highlight across the frame brow)
-    const ceilingStrip = new THREE.Mesh(
-      new THREE.PlaneGeometry(8, 2.5),
-      new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide })
-    );
-    ceilingStrip.position.set(0, 4.0, 1.8);
-    ceilingStrip.rotation.x = Math.PI / 3;
-    scene.add(ceilingStrip);
-
-    // Front camera ring light (illuminates front bevels and lens glass)
-    const frontSoftbox = new THREE.Mesh(
-      new THREE.RingGeometry(1.5, 4.0, 32),
-      new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide })
-    );
-    frontSoftbox.position.set(0, 0.5, 3.5);
-    scene.add(frontSoftbox);
-
-    // Left fill
-    const leftFill = new THREE.Mesh(
-      new THREE.PlaneGeometry(3.5, 3.5),
-      new THREE.MeshBasicMaterial({ color: 0xe2e8f0, side: THREE.DoubleSide })
-    );
-    leftFill.position.set(-3.5, 1.5, 2.5);
-    leftFill.rotation.y = Math.PI / 4;
-    scene.add(leftFill);
-
-    // Right warm accent
-    const rightAccent = new THREE.Mesh(
-      new THREE.PlaneGeometry(3.5, 3.5),
-      new THREE.MeshBasicMaterial({ color: 0xfef08a, side: THREE.DoubleSide })
-    );
-    rightAccent.position.set(3.5, 1.5, 2.0);
-    rightAccent.rotation.y = -Math.PI / 4;
-    scene.add(rightAccent);
-
-    const dirLight = new THREE.DirectionalLight(0xffffff, 3.0);
-    dirLight.position.set(0, 5, 4);
-    scene.add(dirLight);
-
-    const renderTarget = pmremGenerator.fromScene(scene, 0.04);
-    const texture = renderTarget ? renderTarget.texture : null;
-    pmremGenerator.dispose();
-    return texture;
-  } catch (err) {
-    console.warn('PMREM environment map generation skipped on this device/browser:', err);
-    return null;
-  }
+  return null;
 }
 
 // Contact Ambient Occlusion Shadow Texture (strictly under nose bridge, never over eyes)
-function createContactShadowTexture() {
+let cachedShadowTex = null;
+function getContactShadowTexture() {
+  if (cachedShadowTex) return cachedShadowTex;
   if (typeof document === 'undefined') return null;
   try {
     const canvas = document.createElement('canvas');
@@ -116,16 +63,14 @@ function createContactShadowTexture() {
     ctx.ellipse(128, 64, 24, 8, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.generateMipmaps = true;
-    return texture;
+    cachedShadowTex = new THREE.CanvasTexture(canvas);
+    cachedShadowTex.generateMipmaps = true;
+    return cachedShadowTex;
   } catch (e) {
     console.warn('Contact shadow texture generation skipped:', e);
     return null;
   }
 }
-
-const cachedShadowTex = createContactShadowTexture();
 
 export function getLensTextureUrl(frameConfig, lensConfig) {
   const frameKey = frameConfig.lensKey || frameConfig.id.split('-')[0];
@@ -211,11 +156,12 @@ export function buildGlassesModel(frameConfig, colorConfig, lensConfig, envMap) 
   root.add(frontMesh);
 
   // 4. Subtle Contact Drop Shadow on Nasal Saddle
-  if (cachedShadowTex) {
+  const shadowTex = getContactShadowTexture();
+  if (shadowTex) {
     const shadowGeo = new THREE.PlaneGeometry(width * 0.18, height * 0.20);
     shadowGeo.translate(0, verticalShift - 0.010 * height, -0.015);
     const shadowMat = new THREE.MeshBasicMaterial({
-      map: cachedShadowTex,
+      map: shadowTex,
       transparent: true,
       opacity: 0.16,
       blending: THREE.MultiplyBlending,

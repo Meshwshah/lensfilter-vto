@@ -89,24 +89,32 @@ export default function App() {
   useEffect(() => {
     if (!canvasRef.current) return;
 
-    const engine = new VTOEngine(canvasRef.current);
-    engineRef.current = engine;
-    engine.setGlasses(selectedFrame, selectedColor, selectedLens);
+    try {
+      const engine = new VTOEngine(canvasRef.current);
+      engineRef.current = engine;
+      engine.setGlasses(selectedFrame, selectedColor, selectedLens);
 
-    const tracker = new FaceTracker({
-      onLandmarks: handleLandmarks,
-      onError: (err) => {
-        console.warn('Camera initiation notice:', err);
-        setIsFallbackMode(true);
-      },
-      onCameraReady: ({ width, height, isFallback }) => {
-        setIsCameraActive(true);
-        setIsFallbackMode(!!isFallback);
-        engine.setVideoDimensions(width, height);
-        engine.resize(canvasRef.current.clientWidth, canvasRef.current.clientHeight);
-      }
-    });
-    trackerRef.current = tracker;
+      const tracker = new FaceTracker({
+        onLandmarks: handleLandmarks,
+        onError: (err) => {
+          console.warn('Camera initiation notice:', err);
+          setIsFallbackMode(true);
+        },
+        onCameraReady: ({ width, height, isFallback }) => {
+          setIsCameraActive(true);
+          setIsFallbackMode(!!isFallback);
+          if (engineRef.current) {
+            engineRef.current.setVideoDimensions(width, height);
+            if (canvasRef.current) {
+              engineRef.current.resize(canvasRef.current.clientWidth, canvasRef.current.clientHeight);
+            }
+          }
+        }
+      });
+      trackerRef.current = tracker;
+    } catch (engineErr) {
+      console.warn('VTO engine initialization notice:', engineErr);
+    }
 
     const handleResize = () => {
       if (engineRef.current && canvasRef.current) {

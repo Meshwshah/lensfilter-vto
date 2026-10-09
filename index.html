@@ -2,6 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d97706' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='6' cy='15' r='4'/><circle cx='18' cy='15' r='4'/><path d='M14 15a2 2 0 0 0-4 0'/><path d='M2.5 13 5 7c.7-1.3 1.4-2 3-2'/><path d='M21.5 13 19 7c-.7-1.3-1.4-2-3-2'/></svg>" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -13,9 +16,38 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Cinzel:wght@600;700;800&display=swap" rel="stylesheet">
+    
+    <script>
+      window.addEventListener('error', function(e) {
+        console.error('Global error captured:', e.message, e.filename, e.lineno);
+      });
+    </script>
   </head>
   <body class="bg-neutral-950 text-neutral-100 antialiased selection:bg-amber-500/30 selection:text-amber-200 overflow-x-hidden min-h-screen">
-    <div id="root"></div>
+    <div id="root">
+      <!-- Luxury Preloader rendered instantly while scripts load -->
+      <div id="app-preloader" style="min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #131313; color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 24px; text-align: center;">
+        <div style="width: 60px; height: 60px; border-radius: 18px; background: linear-gradient(135deg, #f59e0b, #d97706); display: flex; align-items: center; justify-content: center; font-size: 28px; box-shadow: 0 10px 30px rgba(245, 158, 11, 0.4); margin-bottom: 20px;">
+          👓
+        </div>
+        <div style="font-size: 22px; font-weight: 800; letter-spacing: 2px; color: #f5f5f5;">
+          SPECTA<span style="color: #f59e0b;">AR</span> LUXE
+        </div>
+        <div style="font-size: 11px; letter-spacing: 3px; color: #9ca3af; text-transform: uppercase; margin-top: 6px;">
+          Haute Optique SS/26 Studio
+        </div>
+        <div style="margin-top: 28px; width: 140px; height: 3px; background: rgba(255,255,255,0.1); border-radius: 99px; overflow: hidden; position: relative;">
+          <div style="position: absolute; left: 0; top: 0; height: 100%; width: 50%; background: #f59e0b; border-radius: 99px; animation: loaderSlide 1.3s infinite ease-in-out;"></div>
+        </div>
+      </div>
+      <style>
+        @keyframes loaderSlide {
+          0% { left: -50%; width: 40%; }
+          50% { left: 30%; width: 50%; }
+          100% { left: 100%; width: 40%; }
+        }
+      </style>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
