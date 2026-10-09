@@ -197,34 +197,38 @@ export class FaceTracker {
         console.warn('Video play triggered:', playErr);
       }
 
-      // 2. Initialize / obtain FaceMesh instance
-      this.faceMesh = await getSharedFaceMesh();
-
-      this.videoListener = (results) => {
-        if (!this.isTracking || this.isFallbackMode) return;
-        if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-          const raw = results.multiFaceLandmarks[0];
-          // Mirror landmarks horizontally (1 - x) to match CSS mirrored video feed
-          const mirrored = raw.map((p) => ({
-            x: 1.0 - p.x,
-            y: p.y,
-            z: p.z || 0
-          }));
-          this.onLandmarks(mirrored, false);
-        } else {
-          this.onLandmarks(null, false);
-        }
-      };
-
-      activeResultListeners.add(this.videoListener);
-
+      // Immediately begin camera tracking using fallback simulation so user has 0ms wait time
       this.isTracking = true;
       this.isFallbackMode = false;
       this.isProcessing = false;
 
-      // Start processing loop with mobile performance throttle (max 33 FPS inference to prevent overheating)
+      // Start temporary simulation tracking while FaceMesh downloads in background
+      let fallbackCounter = 0;
+      let hasLiveLandmarks = false;
+
+      const tempFallbackTimer = setInterval(() => {
+        if (!this.isTracking || hasLiveLandmarks) {
+          clearInterval(tempFallbackTimer);
+          return;
+        }
+        fallbackCounter += 0.03;
+        const cx = 0.5 + Math.sin(fallbackCounter * 0.8) * 0.02;
+        const cy = 0.44 + Math.cos(fallbackCounter * 0.6) * 0.015;
+        const eyeSpan = 0.12;
+        const simulated = new Array(478).fill(null).map(() => ({ x: cx, y: cy, z: 0 }));
+        simulated[6] = { x: cx, y: cy - 0.02, z: 0 };
+        simulated[168] = { x: cx, y: cy - 0.02, z: 0 };
+        simulated[1] = { x: cx, y: cy + 0.05, z: 0.04 };
+        simulated[473] = { x: cx - eyeSpan * 0.6, y: cy - 0.02, z: 0 };
+        simulated[468] = { x: cx + eyeSpan * 0.6, y: cy - 0.02, z: 0 };
+        simulated[263] = { x: cx - eyeSpan, y: cy - 0.02, z: 0 };
+        simulated[33] = { x: cx + eyeSpan, y: cy - 0.02, z: 0 };
+        this.onLandmarks(simulated, true);
+      }, 33);
+
+      // Start processing loop with mobile performance throttle (~20 FPS inference to keep phone cool)
       let lastProcessTime = 0;
-      const TARGET_INTERVAL_MS = 28;
+      const TARGET_INTERVAL_MS = 55;
 
       const processFrame = async () => {
         if (!this.isTracking || this.isFallbackMode) return;
@@ -233,6 +237,7 @@ export class FaceTracker {
         const now = performance.now();
 
         if (
+          this.faceMesh &&
           !this.isProcessing &&
           this.videoElement &&
           this.videoElement.readyState >= 2 &&
@@ -243,7 +248,7 @@ export class FaceTracker {
           try {
             await this.faceMesh.send({ image: this.videoElement });
           } catch (e) {
-            // Drop frame if busy or context lost
+            // Drop frame if busy
           } finally {
             this.isProcessing = false;
           }
@@ -252,6 +257,30 @@ export class FaceTracker {
           requestAnimationFrame(processFrame);
         }
       };
+
+      // Load FaceMesh asynchronously without blocking video feed
+      getSharedFaceMesh().then((fm) => {
+        this.faceMesh = fm;
+        this.videoListener = (results) => {
+          if (!this.isTracking || this.isFallbackMode) return;
+          if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+            hasLiveLandmarks = true;
+            clearInterval(tempFallbackTimer);
+            const raw = results.multiFaceLandmarks[0];
+            const mirrored = raw.map((p) => ({
+              x: 1.0 - p.x,
+              y: p.y,
+              z: p.z || 0
+            }));
+            this.onLandmarks(mirrored, false);
+          } else {
+            this.onLandmarks(null, false);
+          }
+        };
+        activeResultListeners.add(this.videoListener);
+      }).catch((fmErr) => {
+        console.warn('FaceMesh background loading notice, continuing with simulation:', fmErr);
+      });
 
       requestAnimationFrame(processFrame);
       notifyDimensions();
@@ -321,6 +350,10 @@ export class FaceTracker {
   // Interactive fallback simulation mode
   startFallbackMode() {
     this.stopStream();
+    if (this.fallbackAnimFrame) {
+      cancelAnimationFrame(this.fallbackAnimFrame);
+      this.fallbackAnimFrame = null;
+    }
     this.isTracking = true;
     this.isFallbackMode = true;
 

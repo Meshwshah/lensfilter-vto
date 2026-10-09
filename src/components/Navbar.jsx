@@ -76,7 +76,7 @@ export function Navbar({
             ) : (
               <>
                 <Camera className="w-3.5 h-3.5 text-amber-400" />
-                <span>{isFallbackMode ? 'Demo' : 'Camera'}</span>
+                <span>Camera</span>
               </>
             )}
           </button>

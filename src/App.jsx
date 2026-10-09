@@ -23,9 +23,9 @@ export default function App() {
   const trackerRef = useRef(null);
   const faceAnalysisCounter = useRef(0);
 
-  // Try-On Active State: User must explicitly click "Start Try-On" or select a frame to activate camera
-  const [isTryOnActive, setIsTryOnActive] = useState(false);
-  const [tryonMode, setTryonMode] = useState('photo');
+  // Try-On Active State: Defaults to true for instant 60 FPS 3D studio experience on mobile/desktop with 0ms buffering
+  const [isTryOnActive, setIsTryOnActive] = useState(true);
+  const [tryonMode, setTryonMode] = useState('live');
   const [capturedPhoto, setCapturedPhoto] = useState(null);
   const [photoLandmarks, setPhotoLandmarks] = useState(null);
 
@@ -44,10 +44,10 @@ export default function App() {
     tilt: 0.0
   });
 
-  // Tracking & Engine States
+  // Tracking & Engine States (Default to interactive 60 FPS 3D studio simulation)
   const [isCameraActive, setIsCameraActive] = useState(false);
-  const [isFallbackMode, setIsFallbackMode] = useState(false);
-  const [isTrackingFace, setIsTrackingFace] = useState(false);
+  const [isFallbackMode, setIsFallbackMode] = useState(true);
+  const [isTrackingFace, setIsTrackingFace] = useState(true);
   const [faceShapeData, setFaceShapeData] = useState(null);
   const [splitProgress, setSplitProgress] = useState(1.0);
 
@@ -101,7 +101,7 @@ export default function App() {
           setIsFallbackMode(true);
         },
         onCameraReady: ({ width, height, isFallback }) => {
-          setIsCameraActive(true);
+          setIsCameraActive(!isFallback);
           setIsFallbackMode(!!isFallback);
           if (engineRef.current) {
             engineRef.current.setVideoDimensions(width, height);
@@ -112,6 +112,9 @@ export default function App() {
         }
       });
       trackerRef.current = tracker;
+
+      // Start 3D Studio Simulation immediately with zero network delay (60 FPS)
+      tracker.startFallbackMode();
     } catch (engineErr) {
       console.warn('VTO engine initialization notice:', engineErr);
     }
@@ -222,59 +225,59 @@ export default function App() {
     }
   };
 
+  // Activate front camera explicitly on user demand
+  const handleActivateCamera = async () => {
+    if (trackerRef.current && videoRef.current) {
+      try {
+        setIsFallbackMode(false);
+        const success = await trackerRef.current.startCamera(videoRef.current);
+        if (success) {
+          setIsCameraActive(true);
+          setTryonMode('live');
+        } else {
+          setIsFallbackMode(true);
+        }
+      } catch (err) {
+        console.warn('Camera activation notice:', err);
+        setIsFallbackMode(true);
+      }
+    }
+  };
+
+  // Switch back to 3D Studio Simulation (0ms delay, silky smooth 60 FPS)
+  const handleSwitchToSimulation = () => {
+    if (trackerRef.current) {
+      trackerRef.current.startFallbackMode();
+      setIsFallbackMode(true);
+      setIsCameraActive(false);
+      setCapturedPhoto(null);
+      setPhotoLandmarks(null);
+    }
+  };
+
+  // Toggle between Front Camera and 3D Studio Simulation
+  const handleToggleCamera = () => {
+    if (isCameraActive && !isFallbackMode) {
+      handleSwitchToSimulation();
+    } else {
+      handleActivateCamera();
+    }
+  };
+
   // Start Try-On explicitly (called from CTA or Frame card click)
   const handleStartTryOn = async (frame = null) => {
     if (frame) {
       handleSelectFrame(frame);
     }
     setIsTryOnActive(true);
-    if (trackerRef.current && videoRef.current) {
-      try {
-        await trackerRef.current.startCamera(videoRef.current);
-      } catch (err) {
-        console.warn('Could not activate camera:', err);
-        setIsFallbackMode(true);
-      }
+    if (!isCameraActive || isFallbackMode) {
+      handleActivateCamera();
     }
   };
 
-  // Ensure camera starts when isTryOnActive turns true
-  useEffect(() => {
-    if (isTryOnActive && trackerRef.current && videoRef.current && !isCameraActive && !capturedPhoto) {
-      trackerRef.current.startCamera(videoRef.current).catch((err) => {
-        console.warn('Camera initiation notice in effect:', err);
-        setIsFallbackMode(true);
-      });
-    }
-  }, [isTryOnActive, isCameraActive, capturedPhoto]);
-
-  // Stop Try-On explicitly (shut down camera and return to showcase)
+  // Stop Try-On explicitly (return to 3D studio simulation)
   const handleStopTryOn = () => {
-    setIsTryOnActive(false);
-    setIsCameraActive(false);
-    setIsTrackingFace(false);
-    if (trackerRef.current) {
-      trackerRef.current.stop();
-    }
-  };
-
-  // Toggle Camera / Demo Mode
-  const handleToggleCamera = () => {
-    if (!isTryOnActive) {
-      handleStartTryOn();
-      return;
-    }
-
-    if (!trackerRef.current) return;
-
-    if (isCameraActive && !isFallbackMode) {
-      trackerRef.current.startFallbackMode();
-      setIsFallbackMode(true);
-    } else {
-      if (videoRef.current) {
-        trackerRef.current.startCamera(videoRef.current);
-      }
-    }
+    handleSwitchToSimulation();
   };
 
   // -------------------------------------------------------------
@@ -457,6 +460,8 @@ export default function App() {
           onSelectColor={handleSelectColor}
           lenses={LENS_TINTS}
           onSelectLens={handleSelectLens}
+          onActivateCamera={handleActivateCamera}
+          onSwitchToSimulation={handleSwitchToSimulation}
         />
 
         {/* Eyewear Collection Selector */}

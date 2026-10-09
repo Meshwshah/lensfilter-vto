@@ -11,7 +11,7 @@ export function FloatingDock({
   if (!selectedFrame) return null;
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-auto max-w-[94vw] px-4 py-2 rounded-full bg-[#121212]/85 backdrop-blur-2xl border border-amber-500/25 shadow-[0_12px_36px_rgba(0,0,0,0.85)] flex items-center space-x-2 sm:space-x-4 animate-in fade-in slide-in-from-bottom-3 duration-300">
+    <div className="hidden sm:flex fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-auto max-w-[94vw] px-4 py-2 rounded-full bg-[#121212]/85 backdrop-blur-2xl border border-amber-500/25 shadow-[0_12px_36px_rgba(0,0,0,0.85)] items-center space-x-2 sm:space-x-4 animate-in fade-in slide-in-from-bottom-3 duration-300">
       {/* Primary Action Button */}
       <button
         type="button"

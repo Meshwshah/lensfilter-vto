@@ -74,7 +74,6 @@ export function FrameCatalog({
               key={frame.id}
               onClick={() => {
                 onSelectFrame(frame);
-                if (onStartTryOn) onStartTryOn(frame);
                 if (window.innerWidth < 1024) {
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }
